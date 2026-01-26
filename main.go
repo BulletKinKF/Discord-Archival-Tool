@@ -484,7 +484,7 @@ func main() {
 	}
 	fmt.Println()
 
-	messages, err := archiver.GetMessages("1464076042951069727") // Parlo's Genral chat.
+	messages, err := archiver.GetMessages("1464076042951069727", 100) // Parlo's Genral chat.
 	if err != nil {
 		panic(err)
 	}
