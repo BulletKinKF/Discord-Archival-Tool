@@ -1,16 +1,16 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
-
-	// "log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Guild struct {
@@ -22,8 +22,424 @@ type Guild struct {
 	Features    []string `json:"features"`
 }
 
-var cfg struct {
-	Port int `env:"PORT"`
+type Channel struct {
+	ID       string `json:"id"`
+	Type     int    `json:"type"`
+	Name     string `json:"name"`
+	Position int    `json:"position"`
+	ParentID string `json:"parent_id,omitempty"`
+	Topic    string `json:"topic,omitempty"`
+}
+
+type Message struct {
+	ID          string       `json:"id"`
+	ChannelID   string       `json:"channel_id"`
+	Author      User         `json:"author"`
+	Content     string       `json:"content"`
+	Timestamp   string       `json:"timestamp"`
+	Attachments []Attachment `json:"attachments"`
+	Embeds      []Embed      `json:"embeds"`
+	Mentions    []User       `json:"mentions"`
+	Pinned      bool         `json:"pinned"`
+	Type        int          `json:"type"`
+}
+
+type User struct {
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	Discriminator string `json:"discriminator"`
+	Avatar        string `json:"avatar"`
+	Bot           bool   `json:"bot,omitempty"`
+}
+
+type Attachment struct {
+	ID       string `json:"id"`
+	Filename string `json:"filename"`
+	URL      string `json:"url"`
+	Size     int    `json:"size"`
+}
+
+type Embed struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Color       int    `json:"color,omitempty"`
+}
+
+type Database struct {
+	db *sql.DB
+}
+
+func NewDatabase(dbPath string) (*Database, error) {
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	database := &Database{db: db}
+	if err := database.createTables(); err != nil {
+		return nil, err
+	}
+
+	return database, nil
+}
+
+func (d *Database) createTables() error {
+	schemaBytes, err := os.ReadFile("schema.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read schema.sql: %w", err)
+	}
+
+	_, err = d.db.Exec(string(schemaBytes))
+	return err
+}
+
+func (d *Database) SaveGuild(guild *Guild) error {
+	featuresJSON, _ := json.Marshal(guild.Features)
+
+	_, err := d.db.Exec(`
+		INSERT OR REPLACE INTO guilds (id, name, icon, owner, permissions, features, archived_at)
+		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	`, guild.ID, guild.Name, guild.Icon, guild.Owner, guild.Permissions, string(featuresJSON))
+
+	return err
+}
+
+func (d *Database) SaveChannel(channel *Channel, guildID string) error {
+	_, err := d.db.Exec(`
+		INSERT OR REPLACE INTO channels (id, guild_id, type, name, position, parent_id, topic)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, channel.ID, guildID, channel.Type, channel.Name, channel.Position, channel.ParentID, channel.Topic)
+
+	return err
+}
+
+func (d *Database) SaveUser(user *User) error {
+	_, err := d.db.Exec(`
+		INSERT OR IGNORE INTO users (id, username, discriminator, avatar, bot)
+		VALUES (?, ?, ?, ?, ?)
+	`, user.ID, user.Username, user.Discriminator, user.Avatar, user.Bot)
+
+	return err
+}
+
+func (d *Database) SaveMessage(message *Message) error {
+	// Save the author first
+	if err := d.SaveUser(&message.Author); err != nil {
+		return err
+	}
+
+	// Save the message
+	_, err := d.db.Exec(`
+		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, timestamp, pinned, type)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, message.ID, message.ChannelID, message.Author.ID, message.Content, message.Timestamp, message.Pinned, message.Type)
+
+	if err != nil {
+		return err
+	}
+
+	// Save attachments
+	for _, attachment := range message.Attachments {
+		_, err := d.db.Exec(`
+			INSERT OR IGNORE INTO attachments (id, message_id, filename, url, size)
+			VALUES (?, ?, ?, ?, ?)
+		`, attachment.ID, message.ID, attachment.Filename, attachment.URL, attachment.Size)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	// Save embeds
+	for _, embed := range message.Embeds {
+		_, err := d.db.Exec(`
+			INSERT INTO embeds (message_id, title, description, url, color)
+			VALUES (?, ?, ?, ?, ?)
+		`, message.ID, embed.Title, embed.Description, embed.URL, embed.Color)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	// Save mentioned users
+	for _, mention := range message.Mentions {
+		if err := d.SaveUser(&mention); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *Database) GetGuildStats(guildID string) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Get guild info
+	var guildName string
+	var archivedAt string
+	err := d.db.QueryRow(`
+		SELECT name, archived_at FROM guilds WHERE id = ?
+	`, guildID).Scan(&guildName, &archivedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	stats["guild_name"] = guildName
+	stats["archived_at"] = archivedAt
+
+	// Count channels
+	var channelCount int
+	d.db.QueryRow(`SELECT COUNT(*) FROM channels WHERE guild_id = ?`, guildID).Scan(&channelCount)
+	stats["channel_count"] = channelCount
+
+	// Count messages
+	var messageCount int
+	d.db.QueryRow(`
+		SELECT COUNT(*) FROM messages 
+		WHERE channel_id IN (SELECT id FROM channels WHERE guild_id = ?)
+	`, guildID).Scan(&messageCount)
+	stats["message_count"] = messageCount
+
+	return stats, nil
+}
+
+func (d *Database) Close() error {
+	return d.db.Close()
+}
+
+type Archiver struct {
+	client    *http.Client
+	authToken string
+	baseURL   string
+	db        *Database
+}
+
+func NewArchiver(authToken string, db *Database) *Archiver {
+	return &Archiver{
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		authToken: authToken,
+		baseURL:   "https://discord.com/api/v10",
+		db:        db,
+	}
+}
+
+func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) {
+	req, err := http.NewRequest(method, a.baseURL+endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", a.authToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == 429 {
+		var rateLimitData struct {
+			RetryAfter float64 `json:"retry_after"`
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		json.Unmarshal(body, &rateLimitData)
+
+		waitTime := time.Duration(rateLimitData.RetryAfter*1000) * time.Millisecond
+		fmt.Printf("Rate limited. Waiting %.2f seconds...\n", rateLimitData.RetryAfter)
+		time.Sleep(waitTime)
+
+		return a.makeRequest(method, endpoint)
+	}
+
+	return resp, nil
+}
+
+func (a *Archiver) GetGuilds() ([]Guild, error) {
+	resp, err := a.makeRequest("GET", "/users/@me/guilds")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	ratelimit := resp.Header.Get("X-RateLimit-Remaining")
+	println("Rates: ", ratelimit)
+
+	for name, values := range resp.Header {
+		// Loop over all values for the name.
+		for _, value := range values {
+			fmt.Println(name, value)
+		}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var guilds []Guild
+	if err := json.Unmarshal(body, &guilds); err != nil {
+		return nil, err
+	}
+
+	return guilds, nil
+}
+
+func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
+	resp, err := a.makeRequest("GET", "/guilds/"+guildID+"/channels")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	ratelimit := resp.Header.Get("X-RateLimit-Remaining")
+	println("Rates: ", ratelimit)
+
+	for name, values := range resp.Header {
+		// Loop over all values for the name.
+		for _, value := range values {
+			fmt.Println(name, value)
+		}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var channels []Channel
+	if err := json.Unmarshal(body, &channels); err != nil {
+		return nil, err
+	}
+
+	return channels, nil
+}
+
+func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
+	var allMessages []Message
+	var beforeID string
+
+	for {
+		endpoint := fmt.Sprintf("/channels/%s/messages?limit=%d", channelID, min(limit-len(allMessages), 100))
+		if beforeID != "" {
+			endpoint += "&before=" + beforeID
+		}
+
+		resp, err := a.makeRequest("GET", endpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		ratelimit := resp.Header.Get("X-RateLimit-Remaining")
+		if ratelimit != "" {
+			println("Rates: ", ratelimit)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		var messages []Message
+		if err := json.Unmarshal(body, &messages); err != nil {
+			return nil, err
+		}
+
+		if len(messages) == 0 {
+			break
+		}
+
+		allMessages = append(allMessages, messages...)
+
+		if len(allMessages) >= limit {
+			break
+		}
+
+		beforeID = messages[len(messages)-1].ID
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return allMessages, nil
+}
+
+func (a *Archiver) ArchiveGuild(guildID, guildName string) error {
+	fmt.Printf("\nArchiving guild: %s\n", guildName)
+
+	// Save guild to database
+	guild := &Guild{
+		ID:   guildID,
+		Name: guildName,
+	}
+	if err := a.db.SaveGuild(guild); err != nil {
+		return err
+	}
+
+	// Get and save channels
+	channels, err := a.GetChannels(guildID)
+	if err != nil {
+		return err
+	}
+
+	for _, channel := range channels {
+		if err := a.db.SaveChannel(&channel, guildID); err != nil {
+			return err
+		}
+	}
+
+	// Archive text channels
+	messageCount := 0
+	for _, channel := range channels {
+		if channel.Type == 0 { // Text channel
+			fmt.Printf("  Archiving channel: #%s\n", channel.Name)
+
+			messages, err := a.GetMessages(channel.ID, 10000)
+			if err != nil {
+				fmt.Printf("    Error: %v\n", err)
+				continue
+			}
+
+			for _, message := range messages {
+				if err := a.db.SaveMessage(&message); err != nil {
+					fmt.Printf("    Error saving message: %v\n", err)
+					continue
+				}
+				messageCount++
+			}
+
+			fmt.Printf("    Saved %d messages\n", len(messages))
+		}
+	}
+
+	fmt.Printf("Archive complete: %d channels, %d messages\n", len(channels), messageCount)
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func main() {
@@ -32,48 +448,65 @@ func main() {
 		panic(err)
 	}
 
-	AuthToken := os.Getenv("authorization")
-	println(AuthToken)
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+	authToken := os.Getenv("authorization")
+	if authToken == "" {
+		panic("authorization token not set")
 	}
 
-	req, err := http.NewRequest(
-		"GET",
-		"https://discord.com/api/v10/users/@me/guilds",
-		nil,
-	)
+	// Initialize database
+	db, err := NewDatabase("discord_archive.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 
+	archiver := NewArchiver(authToken, db)
+
+	// Get all guilds
+	guilds, err := archiver.GetGuilds()
 	if err != nil {
 		panic(err)
 	}
 
-	req.Header.Set("Authorization", AuthToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
+	fmt.Println("Available guilds:")
+	for i, g := range guilds {
+		fmt.Printf("%d. %s (%s)\n", i+1, g.Name, g.ID)
 	}
-	defer resp.Body.Close()
+	fmt.Println()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		panic(fmt.Sprintf("Discord API error: %d - %s", resp.StatusCode, body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	channels, err := archiver.GetChannels("1121096396427239458") // Parlo's Discord Server
 	if err != nil {
 		panic(err)
 	}
 
-	var guilds []Guild
-	if err := json.Unmarshal(body, &guilds); err != nil {
+	for i, c := range channels {
+		fmt.Printf("%d. %s (%s)\n", i+1, c.Name, c.ID)
+	}
+	fmt.Println()
+
+	messages, err := archiver.GetMessages("1464076042951069727") // Parlo's Genral chat.
+	if err != nil {
 		panic(err)
 	}
 
-	for _, g := range guilds {
-		fmt.Printf("Guild: %s (%s)\n", g.Name, g.ID)
+	for _, m := range messages {
+		fmt.Println(m.ID, m.Author.Username, ": ", m.Content)
 	}
+	fmt.Println()
+
+	// // Archive all guilds
+	// for _, guild := range guilds {
+	// 	if err := archiver.ArchiveGuild(guild.ID, guild.Name); err != nil {
+	// 		fmt.Printf("Error archiving %s: %v\n", guild.Name, err)
+	// 		continue
+	// 	}
+
+	// 	// Show stats
+	// 	stats, err := db.GetGuildStats(guild.ID)
+	// 	if err == nil {
+	// 		fmt.Printf("Stats: %+v\n\n", stats)
+	// 	}
+	// }
+
+	// fmt.Println("All archives complete! Database saved to discord_archive.db")
 }
