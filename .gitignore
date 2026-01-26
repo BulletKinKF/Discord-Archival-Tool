@@ -2,3 +2,6 @@
 .env
 .git
 go.sum
+# Database stuff
+.db
+.journal
