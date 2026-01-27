@@ -2,7 +2,7 @@
 
 -- Guilds (Servers)
 CREATE TABLE IF NOT EXISTS guilds (
-    id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     icon TEXT,
     owner BOOLEAN,
@@ -13,19 +13,19 @@ CREATE TABLE IF NOT EXISTS guilds (
 
 -- Channels
 CREATE TABLE IF NOT EXISTS channels (
-    id TEXT PRIMARY KEY,
-    guild_id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,
+    guild_id INTEGER NOT NULL,
     type INTEGER,
     name TEXT NOT NULL,
     position INTEGER,
-    parent_id TEXT,
+    parent_id INTEGER,
     topic TEXT,
     FOREIGN KEY (guild_id) REFERENCES guilds(id)
 );
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     username TEXT NOT NULL,
     discriminator TEXT,
     avatar TEXT,
@@ -34,9 +34,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Messages
 CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    channel_id TEXT NOT NULL,
-    author_id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,
+    channel_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
     content TEXT,
     timestamp DATETIME,
     pinned BOOLEAN DEFAULT 0,
@@ -47,8 +47,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Attachments
 CREATE TABLE IF NOT EXISTS attachments (
-    id TEXT PRIMARY KEY,
-    message_id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY,
+    message_id INTEGER NOT NULL,
     filename TEXT,
     url TEXT,
     size INTEGER,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS attachments (
 -- Embeds
 CREATE TABLE IF NOT EXISTS embeds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    message_id TEXT NOT NULL,
+    message_id INTEGER NOT NULL,
     title TEXT,
     description TEXT,
     url TEXT,
