@@ -2,5 +2,6 @@
 .env
 .git
 *.sum
+*.exe
 # Database stuff
 *.db*
