@@ -1,6 +1,7 @@
 # Discord Archival Tool
 
-![Kiwifarms](https://img.shields.io/badge/Kiwifarms-Account-6BA65E?style=flat&labelColor=42464D&link=https%3A%2F%2Fkiwifarms.st%2Fmembers%2Fbullet-kin.211589%2F)
+[![Kiwifarms](https://img.shields.io/badge/Kiwifarms-Account-6BA65E?style=flat&labelColor=42464D)]()
+[![Status](https://img.shields.io/badge/status-maintenance-ffd700.svg)](https://kiwifarms.st/members/bullet-kin.211589/)
 
 Discord Archive Tool is meant to be a tool for Archival. The goal is to make it easy to archive everything on a Discord server. Great emphasis is put on archiving which will mean that this tool must ARCHIVE FUCKING EVERYTHING!
 
