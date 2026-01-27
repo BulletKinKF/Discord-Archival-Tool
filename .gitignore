@@ -1,7 +1,6 @@
 # DISREGARD THAT I SUCK COCKS
 .env
 .git
-go.sum
+*.sum
 # Database stuff
-.db
-.journal
+*.db*
