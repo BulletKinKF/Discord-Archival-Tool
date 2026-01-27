@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Guild struct {
@@ -451,7 +452,7 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string) error {
 		if channel.Type == 0 { // Text channel
 			fmt.Printf("  Archiving channel: #%s\n", channel.Name)
 
-			messages, err := a.GetMessages(channel.ID, 10000)
+			messages, err := a.GetMessages(channel.ID, 265)
 			if err != nil {
 				fmt.Printf("    Error: %v\n", err)
 				continue
