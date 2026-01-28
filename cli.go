@@ -278,7 +278,7 @@ func archiveAllGuilds(archiver *Archiver) {
 		return
 	}
 
-	fmt.Println("\n🚀 Starting archive process...\n")
+	fmt.Println("\n🚀 Starting archive process...")
 
 	successCount := 0
 	failCount := 0
@@ -298,17 +298,17 @@ func archiveAllGuilds(archiver *Archiver) {
 		}
 	}
 
-	fmt.Printf("\n" + strings.Repeat("═", 40) + "\n")
+	fmt.Printf("\n" + "════════════════════════════════════════" + "\n")
 	fmt.Printf("✅ Archive complete!\n")
 	fmt.Printf("   Success: %d\n", successCount)
 	if failCount > 0 {
 		fmt.Printf("   Failed: %d\n", failCount)
 	}
-	fmt.Printf(strings.Repeat("═", 40) + "\n")
+	fmt.Printf("\n" + "════════════════════════════════════════" + "\n")
 }
 
 func viewArchivedGuilds(db *Database) {
-	fmt.Println("📚 Archived Guilds:\n")
+	fmt.Println("📚 Archived Guilds:")
 
 	guilds, err := db.ListArchivedGuilds()
 	if err != nil {
@@ -338,17 +338,17 @@ func viewGuildStatsByID(db *Database, guildID string) {
 		return
 	}
 
-	fmt.Printf("\n" + strings.Repeat("═", 40) + "\n")
+	fmt.Printf("\n" + "════════════════════════════════════════" + "\n")
 	fmt.Printf("📊 Statistics for '%s'\n", stats["guild_name"])
-	fmt.Printf(strings.Repeat("─", 40) + "\n")
+	fmt.Printf("────────────────────────────────────────" + "\n")
 	fmt.Printf("  Channels:  %d\n", stats["channel_count"])
 	fmt.Printf("  Messages:  %d\n", stats["message_count"])
 	fmt.Printf("  Archived:  %s\n", stats["archived_at"])
-	fmt.Printf(strings.Repeat("═", 40) + "\n")
+	fmt.Printf("════════════════════════════════════════" + "\n")
 }
 
 func viewGuildStatsInteractive(db *Database) {
-	fmt.Println("📊 View Guild Statistics\n")
+	fmt.Println("📊 View Guild Statistics")
 
 	guilds, err := db.ListArchivedGuilds()
 	if err != nil {
