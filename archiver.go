@@ -1,5 +1,3 @@
-// TODO: REPLACE ALL IO.READALL, JSON.MARSHALL WITH json.NewDecoder
-
 package main
 
 import (
