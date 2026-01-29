@@ -115,8 +115,6 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 			return nil, err
 		}
 
-		resp.Body.Close()
-
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
@@ -126,6 +124,7 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
 			return nil, err
 		}
+		resp.Body.Close()
 
 		if len(messages) == 0 {
 			break
