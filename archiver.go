@@ -1,3 +1,5 @@
+// TODO: REPLACE ALL IO.READALL, JSON.MARSHALL WITH json.NewDecoder
+
 package main
 
 import (
@@ -44,9 +46,11 @@ func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) 
 		var rateLimitData struct {
 			RetryAfter float64 `json:"retry_after"`
 		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		json.Unmarshal(body, &rateLimitData)
+		defer resp.Body.Close()
+
+		if err := json.NewDecoder(resp.Body).Decode(&rateLimitData); err != nil {
+			return nil, err
+		}
 
 		waitTime := time.Duration(rateLimitData.RetryAfter*1000) * time.Millisecond
 		fmt.Printf("⚠️  Rate limited. Waiting %.2f seconds...\n", rateLimitData.RetryAfter)
@@ -70,13 +74,8 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var guilds []Guild
-	if err := json.Unmarshal(body, &guilds); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&guilds); err != nil {
 		return nil, err
 	}
 
@@ -95,13 +94,8 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var channels []Channel
-	if err := json.Unmarshal(body, &channels); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&channels); err != nil {
 		return nil, err
 	}
 
@@ -123,19 +117,15 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 			return nil, err
 		}
 
-		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 		}
 
-		if err != nil {
-			return nil, err
-		}
-
 		var messages []Message
-		if err := json.Unmarshal(body, &messages); err != nil {
+		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
 			return nil, err
 		}
 
