@@ -100,6 +100,26 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	return channels, nil
 }
 
+func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
+	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	var guildmembers []GuildMember
+	if err := json.NewDecoder(resp.Body).Decode(&guildmembers); err != nil {
+		return nil, err
+	}
+
+	return guildmembers, nil
+}
+
 func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 	var allMessages []Message
 	var beforeID string
