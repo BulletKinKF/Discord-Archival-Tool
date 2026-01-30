@@ -1,5 +1,7 @@
 package main
 
+import "discord-archival-tool/cmd"
+
 func main() {
-	Execute()
+	cmd.Execute()
 }
