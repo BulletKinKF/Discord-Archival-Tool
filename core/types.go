@@ -1,4 +1,4 @@
-package main
+package core
 
 type Guild struct {
 	ID          string   `json:"id"`
