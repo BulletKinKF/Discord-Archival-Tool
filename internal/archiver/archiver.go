@@ -1,4 +1,4 @@
-package core
+package archiver
 
 import (
 	"encoding/json"
@@ -6,16 +6,18 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"discord-archival-tool/internal/types"
 )
 
 type Archiver struct {
 	client    *http.Client
 	authToken string
 	baseURL   string
-	db        *Database
+	db        *types.Database
 }
 
-func NewArchiver(authToken string, db *Database) *Archiver {
+func NewArchiver(authToken string, db *types.Database) *Archiver {
 	return &Archiver{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -60,7 +62,7 @@ func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) 
 	return resp, nil
 }
 
-func (a *Archiver) GetGuilds() ([]Guild, error) {
+func (a *Archiver) GetGuilds() ([]types.Guild, error) {
 	resp, err := a.makeRequest("GET", "/users/@me/guilds")
 	if err != nil {
 		return nil, err
@@ -72,7 +74,7 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
-	var guilds []Guild
+	var guilds []types.Guild
 	if err := json.NewDecoder(resp.Body).Decode(&guilds); err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 	return guilds, nil
 }
 
-func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
+func (a *Archiver) GetChannels(guildID string) ([]types.Channel, error) {
 	resp, err := a.makeRequest("GET", "/guilds/"+guildID+"/channels")
 	if err != nil {
 		return nil, err
@@ -92,7 +94,7 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
-	var channels []Channel
+	var channels []types.Channel
 	if err := json.NewDecoder(resp.Body).Decode(&channels); err != nil {
 		return nil, err
 	}
@@ -100,7 +102,7 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	return channels, nil
 }
 
-func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
+func (a *Archiver) GetUsersFromGuild(guildId string) ([]types.GuildMember, error) {
 	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members")
 	if err != nil {
 		return nil, err
@@ -112,7 +114,7 @@ func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
-	var guildmembers []GuildMember
+	var guildmembers []types.GuildMember
 	if err := json.NewDecoder(resp.Body).Decode(&guildmembers); err != nil {
 		return nil, err
 	}
@@ -120,8 +122,8 @@ func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 	return guildmembers, nil
 }
 
-func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
-	var allMessages []Message
+func (a *Archiver) GetMessages(channelID string, limit int) ([]types.Message, error) {
+	var allMessages []types.Message
 	var beforeID string
 
 	for {
@@ -140,7 +142,7 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 		}
 
-		var messages []Message
+		var messages []types.Message
 		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
 			return nil, err
 		}
@@ -172,7 +174,7 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 	progressCallback(fmt.Sprintf("📦 Archiving guild: %s", guildName))
 
 	// Save guild to database
-	guild := &Guild{
+	guild := &types.Guild{
 		ID:   guildID,
 		Name: guildName,
 	}

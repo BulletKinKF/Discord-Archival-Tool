@@ -1,4 +1,10 @@
-package core
+package types
+
+import "database/sql"
+
+type Database struct {
+	db *sql.DB
+}
 
 type Guild struct {
 	ID          string   `json:"id"`

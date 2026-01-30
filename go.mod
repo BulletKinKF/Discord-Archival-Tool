@@ -4,6 +4,7 @@ go 1.25.6
 
 
 require github.com/mattn/go-sqlite3 v1.14.33
+require github.com/joho/godotenv v1.5.1
 
 // CLI dependencies
 require (
@@ -13,5 +14,4 @@ require (
 )
 
 // require github.com/relvacode/iso8601 v1.7.0 // indirect
-// require github.com/joho/godotenv v1.5.1
 // require github.com/gorocord/snowflake v1.0.1 // indirect

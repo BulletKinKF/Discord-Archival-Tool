@@ -1,4 +1,4 @@
-package core
+package database
 
 import (
 	"database/sql"
@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"discord-archival-tool/internal/types"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -51,7 +53,7 @@ func parseOptionalID(id string) (interface{}, error) {
 	return parseID(id)
 }
 
-func (d *Database) SaveGuild(guild *Guild) error {
+func (d *Database) SaveGuild(guild *types.Guild) error {
 	guildID, err := parseID(guild.ID)
 	if err != nil {
 		return fmt.Errorf("invalid guild ID: %w", err)
@@ -67,7 +69,7 @@ func (d *Database) SaveGuild(guild *Guild) error {
 	return err
 }
 
-func (d *Database) SaveChannel(channel *Channel, guildID string) error {
+func (d *Database) SaveChannel(channel *types.Channel, guildID string) error {
 	channelID, err := parseID(channel.ID)
 	if err != nil {
 		return fmt.Errorf("invalid channel ID: %w", err)
@@ -91,7 +93,7 @@ func (d *Database) SaveChannel(channel *Channel, guildID string) error {
 	return err
 }
 
-func (d *Database) SaveUser(user *User) error {
+func (d *Database) SaveUser(user *types.User) error {
 	userID, err := parseID(user.ID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -105,7 +107,7 @@ func (d *Database) SaveUser(user *User) error {
 	return err
 }
 
-func (d *Database) SaveMessage(message *Message) error {
+func (d *Database) SaveMessage(message *types.Message) error {
 	messageID, err := parseID(message.ID)
 	if err != nil {
 		return fmt.Errorf("invalid message ID: %w", err)
