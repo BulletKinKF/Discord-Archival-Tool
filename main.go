@@ -33,5 +33,10 @@ func main() {
 	fmt.Println(auth)
 	arc := NewArchiver(auth, db)
 
-	fmt.Println(arc)
+	g, err := arc.GetGuilds()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(g)
 }

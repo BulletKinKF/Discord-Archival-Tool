@@ -72,6 +72,12 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(body))
+
 	var guilds []Guild
 	if err := json.NewDecoder(resp.Body).Decode(&guilds); err != nil {
 		return nil, err
