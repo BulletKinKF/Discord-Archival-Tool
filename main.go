@@ -33,11 +33,5 @@ func main() {
 	fmt.Println(auth)
 	arc := NewArchiver(auth, db)
 
-	fmt.Println("Testing for channels")
-	chans, err := arc.GetChannel("1465598299074592906")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(chans)
+	fmt.Println(arc)
 }
