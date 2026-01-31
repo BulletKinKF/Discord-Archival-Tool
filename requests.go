@@ -100,8 +100,13 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	return channels, nil
 }
 
+// TODO:
+// Get channel data
+// Get User's Channel Direct Messages
+// Find a way to make GetUsersFromGuild function to work.
+
 func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
-	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members")
+	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members?limit=1000")
 	if err != nil {
 		return nil, err
 	}
