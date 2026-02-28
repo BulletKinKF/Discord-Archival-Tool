@@ -1,6 +1,4 @@
 # Discord Archival Tool
-Not now. 
-[![Kiwifarms](https://img.shields.io/badge/From-Kiwifarms-6BA65E?style=flat&labelColor=42464D)](https://kiwifarms.net/) 
 
 Discord Archive Tool is meant to be a tool for Archival. The goal is to make it easy to archive everything on a Discord server. Great emphasis is put on archiving which will mean that this tool must ARCHIVE FUCKING EVERYTHING!
 
@@ -12,4 +10,4 @@ Updates:
 ~~I am using `modernc.org/sqlite` instead of `go-sqlite3` to avoid downloading the C compiler and enabling `CGO_ENABLED=1`. I hope to go back to using `go-sqlite3` as I do not wish to comprimise performance.~~
 You need gcc to set `CGO_ENABLED=1` for this to work.
 
-This repository is licensed with the [MIT+NIGGER](https://archive.is/VQ8a8) license, if you wish to disregard this license then you can *respectfully* **__fuck-off__**!
+This repository is licensed with the [MIT](https://mit-license.org/) license.
