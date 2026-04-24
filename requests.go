@@ -32,8 +32,14 @@ func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) 
 		return nil, err
 	}
 
+	superProps, err := xSuperProperties()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate x-super-properties: %w", err)
+	}
+
 	req.Header.Set("Authorization", a.authToken)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-super-properties", superProps)
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -72,6 +78,8 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 	}
 
+	// Bug fix: body was being read twice — once with ReadAll (and printed),
+	// then again with json.NewDecoder, which would always get an empty reader.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -79,7 +87,7 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 	fmt.Println(string(body))
 
 	var guilds []Guild
-	if err := json.NewDecoder(resp.Body).Decode(&guilds); err != nil {
+	if err := json.Unmarshal(body, &guilds); err != nil {
 		return nil, err
 	}
 
@@ -105,11 +113,6 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 
 	return channels, nil
 }
-
-// TODO:
-// Get channel data
-// Get User's Channel Direct Messages
-// Find a way to make GetUsersFromGuild function to work.
 
 func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members?limit=1000")
@@ -148,11 +151,13 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 		}
 
 		var messages []Message
 		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
+			resp.Body.Close()
 			return nil, err
 		}
 		resp.Body.Close()
@@ -174,15 +179,13 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 	return allMessages, nil
 }
 
-// ArchiveGuild archives a single guild with optional progress callback
 func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func(string)) error {
 	if progressCallback == nil {
-		progressCallback = func(msg string) {} // No-op if not provided
+		progressCallback = func(msg string) {}
 	}
 
 	progressCallback(fmt.Sprintf("📦 Archiving guild: %s", guildName))
 
-	// Save guild to database
 	guild := &Guild{
 		ID:   guildID,
 		Name: guildName,
@@ -191,7 +194,6 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 		return err
 	}
 
-	// Get and save channels
 	progressCallback("📋 Fetching channels...")
 	channels, err := a.GetChannels(guildID)
 	if err != nil {
@@ -204,11 +206,10 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 		}
 	}
 
-	// Archive text channels
 	messageCount := 0
 	textChannelCount := 0
 	for _, channel := range channels {
-		if channel.Type == 0 { // Text channel
+		if channel.Type == 0 {
 			textChannelCount++
 			progressCallback(fmt.Sprintf("💬 Archiving channel #%s (%d/%d)", channel.Name, textChannelCount, len(channels)))
 
