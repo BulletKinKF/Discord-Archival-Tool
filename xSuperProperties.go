@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-
-	"github.com/google/uuid"
 )
 
 func xSuperProperties() (string, error) {
@@ -26,7 +24,7 @@ func xSuperProperties() (string, error) {
 		"release_channel":          "stable",
 		"client_build_number":      rand.Intn(100_000) + 400_000,
 		"client_event_source":      nil,
-		"client_launch_id":         uuid.New().String(),
+		"client_launch_id":         newUUID(),
 		"client_app_state":         "unfocused",
 	}
 
