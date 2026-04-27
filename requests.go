@@ -1,3 +1,7 @@
+// 50 requests per second to Discord API before Rate limit hits.
+// 10,000 requests per 10 minutes results in 24 hour ban on ip. (that's 16.667 requests per sec (fml))
+// It is optimal for there to be 15 requests per second. 1 request every 0.06 seconds should suffice.
+
 package main
 
 import (
@@ -48,7 +52,9 @@ func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) 
 
 	if resp.StatusCode == 429 {
 		var rateLimitData struct {
+			Message    string  `json:"message"`
 			RetryAfter float64 `json:"retry_after"`
+			Global     bool    `json:"boolean"`
 		}
 		defer resp.Body.Close()
 
@@ -114,6 +120,7 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	return channels, nil
 }
 
+// I don't think this function works...
 func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 	resp, err := a.makeRequest("GET", "/guilds/"+guildId+"/members?limit=1000")
 	if err != nil {
@@ -173,7 +180,7 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 		}
 
 		beforeID = messages[len(messages)-1].ID
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(60 * time.Millisecond) // 0.06 seconds
 	}
 
 	return allMessages, nil
@@ -235,9 +242,26 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 	return nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// Misc Functions
+
+func (a *Archiver) GetDiscoverableGuilds() ([]DiscoverableGuild, error) {
+	resp, err := a.makeRequest("GET", "/discoverable-guilds")
+	if err != nil {
+		return nil, err
 	}
-	return b
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	var result struct {
+		DiscoveredGuilds []DiscoverableGuild `json:"guilds"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.DiscoveredGuilds, nil
 }

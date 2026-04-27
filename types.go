@@ -1,21 +1,25 @@
 package main
 
 type Guild struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Icon        string   `json:"icon"`
-	Owner       bool     `json:"owner"`
-	Permissions string   `json:"permissions"`
-	Features    []string `json:"features"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Icon        string `json:"icon"`
+	Owner       bool   `json:"owner"`
+	Permissions string `json:"permissions"`
+	// Features    []string `json:"features"`
 }
 
 type Channel struct {
-	ID       string `json:"id"`
-	Type     int    `json:"type"`
-	Name     string `json:"name"`
-	Position int    `json:"position"`
-	ParentID string `json:"parent_id,omitempty"`
-	Topic    string `json:"topic,omitempty"`
+	ID            string `json:"id"`
+	Type          int    `json:"type"`
+	Name          string `json:"name"`
+	Position      int    `json:"position"`
+	ParentID      string `json:"parent_id,omitempty"`
+	Topic         string `json:"topic,omitempty"`
+	GuildID       string `json:"guild_id,omitempty"`
+	NSFW          bool   `json:"boolean,omitempty"`
+	LastMessageID string `json:"last_message_id,omitempty"`
+	// TotalMessages int    `json:"total_message_sent,omitempty"` // Even counts the deleted messages. Only availible in threads.
 }
 
 type Message struct {
@@ -73,4 +77,15 @@ type Embed struct {
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url,omitempty"`
 	Color       int    `json:"color,omitempty"`
+}
+
+type DiscoverableGuild struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Icon        string `json:"icon"`
+	Owner       bool   `json:"owner"`
+	Permissions string `json:"permissions"`
+	MemberCount int    `json:"approximate_member_count"`
+	// Features    []string `json:"features"`
 }
