@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -57,12 +56,12 @@ func (d *Database) SaveGuild(guild *Guild) error {
 		return fmt.Errorf("invalid guild ID: %w", err)
 	}
 
-	featuresJSON, _ := json.Marshal(guild.Features)
+	// featuresJSON, _ := json.Marshal(guild.Features)
 
 	_, err = d.db.Exec(`
-		INSERT OR REPLACE INTO guilds (id, name, icon, owner, permissions, features, archived_at)
-		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-	`, guildID, guild.Name, guild.Icon, guild.Owner, guild.Permissions, string(featuresJSON))
+		INSERT OR REPLACE INTO guilds (id, name, icon, owner, permissions, archived_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	`, guildID, guild.Name, guild.Icon, guild.Owner, guild.Permissions)
 
 	return err
 }
