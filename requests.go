@@ -57,15 +57,13 @@ func (a *Archiver) makeRequest(method, endpoint string) (*http.Response, error) 
 			Global     bool    `json:"boolean"`
 		}
 		defer resp.Body.Close()
-
 		if err := json.NewDecoder(resp.Body).Decode(&rateLimitData); err != nil {
 			return nil, err
 		}
 
 		waitTime := time.Duration(rateLimitData.RetryAfter*1000) * time.Millisecond
-		fmt.Printf("⚠️  Rate limited. Waiting %.2f seconds...\n", rateLimitData.RetryAfter)
+		fmt.Printf("⚠️ Rate limited. Waiting %.2f seconds...\n", rateLimitData.RetryAfter)
 		time.Sleep(waitTime)
-
 		return a.makeRequest(method, endpoint)
 	}
 
@@ -90,6 +88,7 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	fmt.Println(string(body))
 
 	var guilds []Guild
@@ -141,9 +140,17 @@ func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 	return guildmembers, nil
 }
 
-func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
+// GetMessages fetches up to `limit` messages from a channel, paginating
+// backwards (newest → oldest) using Discord's `?before=` parameter.
+//
+// resumeBeforeID, if non-empty, is used as the initial `before` cursor.
+// This lets callers resume an interrupted download by passing in the oldest
+// message ID they already have stored — fetching will continue from that
+// point backwards into older history without re-downloading anything already
+// saved. Pass an empty string to start from the very latest message.
+func (a *Archiver) GetMessages(channelID string, limit int, resumeBeforeID string) ([]Message, error) {
 	var allMessages []Message
-	var beforeID string
+	beforeID := resumeBeforeID // start at the resume point (may be "")
 
 	for {
 		endpoint := fmt.Sprintf("/channels/%s/messages?limit=%d", channelID, min(limit-len(allMessages), 100))
@@ -186,6 +193,11 @@ func (a *Archiver) GetMessages(channelID string, limit int) ([]Message, error) {
 	return allMessages, nil
 }
 
+// ArchiveGuild archives all text channels in a guild.
+// For each channel it first checks the database for the oldest message
+// already stored and resumes downloading from that point, so interrupted
+// runs can be safely restarted without re-fetching messages that are already
+// saved.
 func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func(string)) error {
 	if progressCallback == nil {
 		progressCallback = func(msg string) {}
@@ -215,27 +227,47 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 
 	messageCount := 0
 	textChannelCount := 0
-	for _, channel := range channels {
-		if channel.Type == 0 {
-			textChannelCount++
-			progressCallback(fmt.Sprintf("💬 Archiving channel #%s (%d/%d)", channel.Name, textChannelCount, len(channels)))
 
-			messages, err := a.GetMessages(channel.ID, 10000)
-			if err != nil {
-				progressCallback(fmt.Sprintf("⚠️  Error fetching messages from #%s: %v", channel.Name, err))
+	for _, channel := range channels {
+		textChannelCount++
+
+		// Check whether we have already started archiving this channel.
+		// GetOldestMessageID returns "" when the channel has no stored
+		// messages, which causes GetMessages to start from the latest
+		// message — the normal first-run behaviour.
+		resumeID, err := a.db.GetOldestMessageID(channel.ID)
+		if err != nil {
+			progressCallback(fmt.Sprintf("⚠️ Could not read resume point for #%s: %v", channel.Name, err))
+			resumeID = "" // fall back to a fresh fetch
+		}
+
+		if resumeID != "" {
+			progressCallback(fmt.Sprintf(
+				"⏩ Resuming #%s from message ID %s (%d/%d)",
+				channel.Name, resumeID, textChannelCount, len(channels),
+			))
+		} else {
+			progressCallback(fmt.Sprintf(
+				"💬 Archiving channel #%s (%d/%d)",
+				channel.Name, textChannelCount, len(channels),
+			))
+		}
+
+		messages, err := a.GetMessages(channel.ID, 10000, resumeID)
+		if err != nil {
+			progressCallback(fmt.Sprintf("⚠️ Error fetching messages from #%s: %v", channel.Name, err))
+			continue
+		}
+
+		for _, message := range messages {
+			if err := a.db.SaveMessage(&message); err != nil {
+				progressCallback(fmt.Sprintf("⚠️ Error saving message: %v", err))
 				continue
 			}
-
-			for _, message := range messages {
-				if err := a.db.SaveMessage(&message); err != nil {
-					progressCallback(fmt.Sprintf("⚠️  Error saving message: %v", err))
-					continue
-				}
-				messageCount++
-			}
-
-			progressCallback(fmt.Sprintf("✅ Saved %d messages from #%s", len(messages), channel.Name))
+			messageCount++
 		}
+
+		progressCallback(fmt.Sprintf("✅ Saved %d messages from #%s", len(messages), channel.Name))
 	}
 
 	progressCallback(fmt.Sprintf("✨ Archive complete: %d channels, %d messages", len(channels), messageCount))
