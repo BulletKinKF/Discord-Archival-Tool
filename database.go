@@ -127,9 +127,9 @@ func (d *Database) SaveMessage(message *Message) error {
 
 	// Save the message
 	_, err = d.db.Exec(`
-		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, timestamp, pinned, type)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, messageID, channelID, authorID, message.Content, message.Timestamp, message.Pinned, message.Type)
+		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, pinned, type)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, messageID, channelID, authorID, message.Content, message.Pinned, message.Type)
 
 	if err != nil {
 		return err
@@ -172,6 +172,34 @@ func (d *Database) SaveMessage(message *Message) error {
 	}
 
 	return nil
+}
+
+// GetOldestMessageID returns the smallest (oldest) message ID stored for a
+// channel, formatted as a decimal string matching Discord's snowflake format.
+// If the channel has no messages yet, it returns ("", nil) — the caller
+// should treat an empty string as "no resume point; start from the top".
+func (d *Database) GetOldestMessageID(channelID string) (string, error) {
+	chID, err := parseID(channelID)
+	if err != nil {
+		return "", fmt.Errorf("invalid channel ID: %w", err)
+	}
+
+	var minID sql.NullInt64
+	err = d.db.QueryRow(`
+		SELECT MIN(id) FROM messages WHERE channel_id = ?
+	`, chID).Scan(&minID)
+	if err != nil {
+		return "", fmt.Errorf("querying oldest message ID: %w", err)
+	}
+
+	// No rows stored yet for this channel.
+	if !minID.Valid {
+		return "", nil
+	}
+
+	// Convert back to a string so callers can use it directly in API URLs,
+	// the same way the rest of the codebase handles Discord snowflakes.
+	return strconv.FormatUint(uint64(minID.Int64), 10), nil
 }
 
 func (d *Database) GetGuildStats(guildID string) (map[string]interface{}, error) {
