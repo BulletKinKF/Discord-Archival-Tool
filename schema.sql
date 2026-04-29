@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS guilds (
     icon TEXT,
     owner BOOLEAN,
     permissions TEXT,
-    features TEXT,
     archived_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -38,7 +37,6 @@ CREATE TABLE IF NOT EXISTS messages (
     channel_id INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
     content TEXT,
-    timestamp DATETIME,
     pinned BOOLEAN DEFAULT 0,
     type INTEGER,
     FOREIGN KEY (channel_id) REFERENCES channels(id),
