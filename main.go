@@ -74,7 +74,7 @@ func main() {
 			}
 
 			for _, m := range directMessages {
-				fmt.Println(m.ID, " | ", m.Recipients[1].Name)
+				fmt.Println(m.ID, " | ", m.Recipients[1].Username)
 			}
 			return nil
 		},
