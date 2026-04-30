@@ -56,8 +56,11 @@ func main() {
 			db := initDatabase()
 			arc := NewArchiver(token, db)
 			fmt.Printf("Archiving server: %s\n", guildID)
-			// TODO: call your actual archive logic here, e.g. arc.ArchiveGuild(guildID)
-			_ = arc
+			if err := arc.ArchiveGuild(guildID, func(status string) {
+				fmt.Println(status)
+			}); err != nil {
+				return fmt.Errorf("failed to archive guild: %w", err)
+			}
 			return nil
 		},
 	}

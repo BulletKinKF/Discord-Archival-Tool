@@ -24,19 +24,28 @@ type Channel struct {
 }
 
 type Message struct {
-	ID               string       `json:"id"`
-	ChannelID        string       `json:"channel_id"`
-	Author           User         `json:"author"`
-	Content          string       `json:"content"`
-	Timestamp        string       `json:"timestamp"`                  // This doesn't need to be saved as it is already included in the snowflake
-	EditedTimestamp  string       `json:"edited_timestamp,omitempty"` //If this is included then save as int.
-	MentionsEveryone bool         `json:"mention_everyone"`
-	Mentions         []User       `json:"mentions"`
-	MentionRoles     []string     `json:"mention_roles"`
-	Attachments      []Attachment `json:"attachments"`
-	Embeds           []Embed      `json:"embeds"`
-	Pinned           bool         `json:"pinned"`
-	Type             int          `json:"type"`
+	ID               string            `json:"id"`
+	ChannelID        string            `json:"channel_id"`
+	Author           User              `json:"author"`
+	Content          string            `json:"content"`
+	Timestamp        string            `json:"timestamp"`                  // This doesn't need to be saved as it is already included in the snowflake
+	EditedTimestamp  string            `json:"edited_timestamp,omitempty"` //If this is included then save as int.
+	MentionsEveryone bool              `json:"mention_everyone"`
+	Mentions         []User            `json:"mentions"`
+	MentionRoles     []string          `json:"mention_roles"` // array of role IDs.
+	Attachments      []Attachment      `json:"attachments"`
+	Embeds           []Embed           `json:"embeds"`
+	Pinned           bool              `json:"pinned"`
+	Type             int               `json:"type"`
+	Reference        *MessageReference `json:"message_reference,omitempty"`
+}
+
+// https://docs.discord.food/resources/message#message-reference-object
+type MessageReference struct {
+	Type      int    `json:"type,omitempty"`
+	MessageID string `json:"message_id,omitempty"`
+	ChannelID string `json:"channel_id,omitempty"`
+	GuildID   string `json:"guild_id,omitempty"`
 }
 
 type User struct {

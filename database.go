@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/relvacode/iso8601"
 )
 
 type Database struct {
@@ -152,14 +153,44 @@ func (d *Database) SaveMessage(message *Message) error {
 		return err
 	}
 
+	// Format timestamp into int
+	var editedTimeInt int64
+	if message.EditedTimestamp != "" {
+		editedTime, err := iso8601.ParseString(message.EditedTimestamp)
+		if err != nil {
+			return fmt.Errorf("invalid edited timestamp: %w", err)
+		}
+		editedTimeInt = editedTime.UnixMilli()
+	}
+
 	// Save the message
 	_, err = d.db.Exec(`
-		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, pinned, type)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, messageID, channelID, authorID, message.Content, message.Pinned, message.Type)
+		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, edited_timestamp, pinned, mentions_everyone, replying_to, type)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, messageID, channelID, authorID, message.Content, editedTimeInt, message.Pinned, message.MentionsEveryone, message.Reference.MessageID, message.Type)
 
 	if err != nil {
 		return err
+	}
+
+	// Save mentioned users
+	for _, mention := range message.Mentions {
+		if err := d.SaveUser(&mention); err != nil {
+			return err
+		}
+
+		mentionID, err := parseID(mention.ID)
+		if err != nil {
+			return fmt.Errorf("invalid mention ID: %w", err)
+		}
+
+		_, err = d.db.Exec(`
+        INSERT OR IGNORE INTO message_mentions (message_id, user_id)
+        VALUES (?, ?)
+    `, messageID, mentionID)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Save attachments
@@ -194,6 +225,22 @@ func (d *Database) SaveMessage(message *Message) error {
 	// Save mentioned users
 	for _, mention := range message.Mentions {
 		if err := d.SaveUser(&mention); err != nil {
+			return err
+		}
+	}
+
+	// Save mentioned roles
+	for _, mentionRole := range message.MentionRoles {
+		roleID, err := parseID(mentionRole)
+		if err != nil {
+			return fmt.Errorf("invalid mention role ID: %w", err)
+		}
+
+		_, err = d.db.Exec(`
+			INSERT OR IGNORE INTO message_mention_roles (message_id, role_id)
+			VALUES (?, ?)
+		`, messageID, roleID)
+		if err != nil {
 			return err
 		}
 	}
