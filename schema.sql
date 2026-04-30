@@ -67,5 +67,4 @@ CREATE TABLE IF NOT EXISTS embeds (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_channels_guild ON channels(guild_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
-CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
