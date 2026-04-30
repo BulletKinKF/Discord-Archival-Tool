@@ -19,6 +19,7 @@ type Channel struct {
 	GuildID       string `json:"guild_id,omitempty"`
 	NSFW          bool   `json:"boolean,omitempty"`
 	LastMessageID string `json:"last_message_id,omitempty"`
+	Recipients    []User `json:"recipients,omitempty"`
 	// TotalMessages int    `json:"total_message_sent,omitempty"` // Even counts the deleted messages. Only availible in threads.
 }
 

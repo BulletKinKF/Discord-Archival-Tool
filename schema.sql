@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS guilds (
 -- Channels
 CREATE TABLE IF NOT EXISTS channels (
     id INTEGER PRIMARY KEY,
-    guild_id INTEGER NOT NULL,
+    guild_id INTEGER,
     type INTEGER,
-    name TEXT NOT NULL,
+    name TEXT,
     position INTEGER,
     parent_id INTEGER,
     topic TEXT,
@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS messages (
     type INTEGER,
     FOREIGN KEY (channel_id) REFERENCES channels(id),
     FOREIGN KEY (author_id) REFERENCES users(id)
+);
+
+-- Channel Recipients (for DMs type 1 and Group DMs type 3)
+CREATE TABLE IF NOT EXISTS channel_recipients (
+    channel_id INTEGER NOT NULL,
+    user_id    INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, user_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(id),
+    FOREIGN KEY (user_id)    REFERENCES users(id)
 );
 
 -- Attachments

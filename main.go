@@ -62,6 +62,24 @@ func main() {
 		},
 	}
 
+	listDMs := &cobra.Command{
+		Use:   "ListDms",
+		Short: "Lists Direct Messages.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			db := initDatabase()
+			arc := NewArchiver(token, db)
+			directMessages, err := arc.GetDMs()
+			if err != nil {
+				return fmt.Errorf("failed to list DMs: %w", err)
+			}
+
+			for _, m := range directMessages {
+				fmt.Println(m.ID, " | ", m.Recipients[1].Name)
+			}
+			return nil
+		},
+	}
+
 	listDiscoveryGuilds := &cobra.Command{
 		Use:   "discovery",
 		Short: "Lists servers from Discord's discovery feature",
@@ -79,7 +97,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(guildsCmd, archiveCmd, listDiscoveryGuilds)
+	rootCmd.AddCommand(guildsCmd, archiveCmd, listDiscoveryGuilds, listDMs)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
