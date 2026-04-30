@@ -24,16 +24,19 @@ type Channel struct {
 }
 
 type Message struct {
-	ID          string       `json:"id"`
-	ChannelID   string       `json:"channel_id"`
-	Author      User         `json:"author"`
-	Content     string       `json:"content"`
-	Timestamp   string       `json:"timestamp"`
-	Attachments []Attachment `json:"attachments"`
-	Embeds      []Embed      `json:"embeds"`
-	Mentions    []User       `json:"mentions"`
-	Pinned      bool         `json:"pinned"`
-	Type        int          `json:"type"`
+	ID               string       `json:"id"`
+	ChannelID        string       `json:"channel_id"`
+	Author           User         `json:"author"`
+	Content          string       `json:"content"`
+	Timestamp        string       `json:"timestamp"`                  // This doesn't need to be saved as it is already included in the snowflake
+	EditedTimestamp  string       `json:"edited_timestamp,omitempty"` //If this is included then save as int.
+	MentionsEveryone bool         `json:"mention_everyone"`
+	Mentions         []User       `json:"mentions"`
+	MentionRoles     []string     `json:"mention_roles"`
+	Attachments      []Attachment `json:"attachments"`
+	Embeds           []Embed      `json:"embeds"`
+	Pinned           bool         `json:"pinned"`
+	Type             int          `json:"type"`
 }
 
 type User struct {
@@ -89,4 +92,22 @@ type DiscoverableGuild struct {
 	Permissions string `json:"permissions"`
 	MemberCount int    `json:"approximate_member_count"`
 	// Features    []string `json:"features"`
+}
+
+type RoleColors struct {
+	PrimaryColor   int `json:"primary_color"`
+	SecondaryColor int `json:"secondary_color,omitempty"`
+	TertiaryColor  int `json:"tertiary_color,omitempty"` // Can only be 11127295, 16759788, 16761760
+}
+
+type Roles struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Hoist       bool   `json:"hoist"`
+	Position    int    `json:"position"`
+	Permissions string `json:"permissions"`
+	Mentionable bool   `json:"mentionable"`
+	Emoji       string `json:"unicode_emoji,omitempty"`
+	Flags       int    `json:"flags,omitempty"`
 }
