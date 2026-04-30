@@ -40,7 +40,7 @@ func main() {
 				return fmt.Errorf("failed to fetch guilds: %w", err)
 			}
 			for _, g := range guilds {
-				fmt.Println(g)
+				fmt.Println(g.ID, " | ", g.Name)
 			}
 			return nil
 		},
@@ -62,7 +62,24 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(guildsCmd, archiveCmd)
+	listDiscoveryGuilds := &cobra.Command{
+		Use:   "discovery",
+		Short: "Lists servers from Discord's discovery feature",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			db := initDatabase()
+			arc := NewArchiver(token, db)
+			dg, err := arc.GetDiscoverableGuilds()
+			if err != nil {
+				return fmt.Errorf("failed to discover guilds: %w", err)
+			}
+			for _, g := range dg {
+				fmt.Printf("Name: %s \nGuild ID: %s \nMember Count: %d \nDescription: %s \n\n", g.Name, g.ID, g.MemberCount, g.Description)
+			}
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(guildsCmd, archiveCmd, listDiscoveryGuilds)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
