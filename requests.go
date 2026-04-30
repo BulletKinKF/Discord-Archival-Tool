@@ -99,6 +99,26 @@ func (a *Archiver) GetGuilds() ([]Guild, error) {
 	return guilds, nil
 }
 
+func (a *Archiver) GetGuildInfo(guildID string) (*Guild, error) {
+	resp, err := a.makeRequest("GET", "/guilds/"+guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	var guild Guild
+	if err := json.NewDecoder(resp.Body).Decode(&guild); err != nil {
+		return nil, err
+	}
+
+	return &guild, nil
+}
+
 func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	resp, err := a.makeRequest("GET", "/guilds/"+guildID+"/channels")
 	if err != nil {
@@ -117,6 +137,26 @@ func (a *Archiver) GetChannels(guildID string) ([]Channel, error) {
 	}
 
 	return channels, nil
+}
+
+func (a *Archiver) GetChannelInfo(channelID string) (*Channel, error) {
+	resp, err := a.makeRequest("GET", "/channels/"+channelID)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	var channel Channel
+	if err := json.NewDecoder(resp.Body).Decode(&channel); err != nil {
+		return nil, err
+	}
+
+	return &channel, nil
 }
 
 // I don't think this function works...
@@ -198,17 +238,18 @@ func (a *Archiver) GetMessages(channelID string, limit int, resumeBeforeID strin
 // already stored and resumes downloading from that point, so interrupted
 // runs can be safely restarted without re-fetching messages that are already
 // saved.
-func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func(string)) error {
+func (a *Archiver) ArchiveGuild(guildID string, progressCallback func(string)) error {
 	if progressCallback == nil {
 		progressCallback = func(msg string) {}
 	}
 
-	progressCallback(fmt.Sprintf("📦 Archiving guild: %s", guildName))
-
-	guild := &Guild{
-		ID:   guildID,
-		Name: guildName,
+	guild, err := a.GetGuildInfo(guildID)
+	if err != nil {
+		return err
 	}
+
+	progressCallback(fmt.Sprintf("📦 Archiving guild: %s", guild.Name))
+
 	if err := a.db.SaveGuild(guild); err != nil {
 		return err
 	}
@@ -274,6 +315,37 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 	return nil
 }
 
+func (a *Archiver) ArchiveChannel(channelID string, guildID string, progressCallback func(string)) error {
+	if progressCallback == nil {
+		progressCallback = func(msg string) {}
+	}
+
+	channel, err := a.GetChannelInfo(channelID)
+	if err != nil {
+		return err
+	}
+
+	// If the channel is contained within a guild
+	if channel.GuildID ~= nil {
+		guild, err := a.GetGuildInfo(guildID)
+		if err != nil {
+			return err
+		}
+	
+		progressCallback(fmt.Sprintf("💾 Saving parent guild: %s", guild.Name))
+	
+		if err := a.db.SaveGuild(guild); err != nil {
+			return err
+		}
+	}
+
+	progressCallback(fmt.Sprintf("📦 Archiving channel: %s", channelID))
+
+
+
+	return nil
+}
+
 func (a *Archiver) GetDMs() ([]Channel, error) {
 	resp, err := a.makeRequest("GET", "/users/@me/channels")
 	if err != nil {
@@ -295,6 +367,7 @@ func (a *Archiver) GetDMs() ([]Channel, error) {
 
 	return channels, nil
 }
+
 
 // Misc Functions
 func (a *Archiver) GetDiscoverableGuilds() ([]DiscoverableGuild, error) {
