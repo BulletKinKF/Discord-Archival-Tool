@@ -37,10 +37,43 @@ CREATE TABLE IF NOT EXISTS messages (
     channel_id INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
     content TEXT,
+    edited_timestamp INTEGER,
     pinned BOOLEAN DEFAULT 0,
+    mentions_everyone BOOLEAN DEFAULT 0,
+    replying_to INTEGER,
     type INTEGER,
     FOREIGN KEY (channel_id) REFERENCES channels(id),
-    FOREIGN KEY (author_id) REFERENCES users(id)
+    FOREIGN KEY (author_id) REFERENCES users(id),
+    FOREIGN KEY (replying_to) REFERENCES messages(id)
+);
+
+-- Roles
+CREATE TABLE IF NOT EXISTS roles (
+    id INTEGER PRIMARY KEY,
+    guild_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    color INTEGER,
+    position INTEGER,
+    permissions TEXT,
+    FOREIGN KEY (guild_id) REFERENCES guilds(id)
+);
+
+-- Message Mentions
+CREATE TABLE IF NOT EXISTS message_mentions (
+    message_id INTEGER NOT NULL,
+    user_id    INTEGER NOT NULL,
+    PRIMARY KEY (message_id, user_id),
+    FOREIGN KEY (message_id) REFERENCES messages(id),
+    FOREIGN KEY (user_id)    REFERENCES users(id)
+);
+
+-- Message Role Mentions
+CREATE TABLE IF NOT EXISTS message_mention_roles (
+    message_id INTEGER NOT NULL,
+    role_id    INTEGER NOT NULL,
+    PRIMARY KEY (message_id, role_id),
+    FOREIGN KEY (message_id) REFERENCES messages(id),
+    FOREIGN KEY (role_id)    REFERENCES roles(id)
 );
 
 -- Channel Recipients (for DMs type 1 and Group DMs type 3)

@@ -326,22 +326,20 @@ func (a *Archiver) ArchiveChannel(channelID string, guildID string, progressCall
 	}
 
 	// If the channel is contained within a guild
-	if channel.GuildID ~= nil {
+	if channel.GuildID != "" {
 		guild, err := a.GetGuildInfo(guildID)
 		if err != nil {
 			return err
 		}
-	
+
 		progressCallback(fmt.Sprintf("💾 Saving parent guild: %s", guild.Name))
-	
+
 		if err := a.db.SaveGuild(guild); err != nil {
 			return err
 		}
 	}
 
 	progressCallback(fmt.Sprintf("📦 Archiving channel: %s", channelID))
-
-
 
 	return nil
 }
@@ -367,7 +365,6 @@ func (a *Archiver) GetDMs() ([]Channel, error) {
 
 	return channels, nil
 }
-
 
 // Misc Functions
 func (a *Archiver) GetDiscoverableGuilds() ([]DiscoverableGuild, error) {

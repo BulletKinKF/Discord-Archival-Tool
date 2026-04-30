@@ -14,6 +14,6 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 )
 
-// require github.com/relvacode/iso8601 v1.7.0 // indirect
+require github.com/relvacode/iso8601 v1.7.0
 
 // require github.com/gorocord/snowflake v1.0.1 // indirect
