@@ -163,11 +163,17 @@ func (d *Database) SaveMessage(message *Message) error {
 		editedTimeInt = editedTime.UnixMilli()
 	}
 
+	// check if message.Reference is not nil and if so parse the message reference ID
+	var messageRefID *string
+	if message.Reference != nil {
+		messageRefID = &message.Reference.MessageID
+	}
+
 	// Save the message
 	_, err = d.db.Exec(`
 		INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, edited_timestamp, pinned, mentions_everyone, replying_to, type)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, messageID, channelID, authorID, message.Content, editedTimeInt, message.Pinned, message.MentionsEveryone, message.Reference.MessageID, message.Type)
+	`, messageID, channelID, authorID, message.Content, editedTimeInt, message.Pinned, message.MentionsEveryone, messageRefID, message.Type)
 
 	if err != nil {
 		return err
