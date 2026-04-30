@@ -274,8 +274,29 @@ func (a *Archiver) ArchiveGuild(guildID, guildName string, progressCallback func
 	return nil
 }
 
-// Misc Functions
+func (a *Archiver) GetDMs() ([]Channel, error) {
+	resp, err := a.makeRequest("GET", "/users/@me/channels")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+	}
+
+	fmt.Println(resp.Body)
+
+	var channels []Channel
+	if err := json.NewDecoder(resp.Body).Decode(&channels); err != nil {
+		return nil, err
+	}
+
+	return channels, nil
+}
+
+// Misc Functions
 func (a *Archiver) GetDiscoverableGuilds() ([]DiscoverableGuild, error) {
 	resp, err := a.makeRequest("GET", "/discoverable-guilds")
 	if err != nil {

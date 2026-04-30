@@ -72,9 +72,13 @@ func (d *Database) SaveChannel(channel *Channel, guildID string) error {
 		return fmt.Errorf("invalid channel ID: %w", err)
 	}
 
-	gID, err := parseID(guildID)
-	if err != nil {
-		return fmt.Errorf("invalid guild ID: %w", err)
+	// guild_id is now nullable (nil for DMs)
+	var gID interface{}
+	if guildID != "" {
+		gID, err = parseID(guildID)
+		if err != nil {
+			return fmt.Errorf("invalid guild ID: %w", err)
+		}
 	}
 
 	parentID, err := parseOptionalID(channel.ParentID)
@@ -83,11 +87,34 @@ func (d *Database) SaveChannel(channel *Channel, guildID string) error {
 	}
 
 	_, err = d.db.Exec(`
-		INSERT OR REPLACE INTO channels (id, guild_id, type, name, position, parent_id, topic)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, channelID, gID, channel.Type, channel.Name, channel.Position, parentID, channel.Topic)
+        INSERT OR REPLACE INTO channels (id, guild_id, type, name, position, parent_id, topic)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, channelID, gID, channel.Type, channel.Name, channel.Position, parentID, channel.Topic)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Save recipients (DMs and Group DMs)
+	for _, recipient := range channel.Recipients {
+		if err := d.SaveUser(&recipient); err != nil {
+			return fmt.Errorf("failed to save recipient user: %w", err)
+		}
+
+		recipientID, err := parseID(recipient.ID)
+		if err != nil {
+			return fmt.Errorf("invalid recipient ID: %w", err)
+		}
+
+		_, err = d.db.Exec(`
+            INSERT OR IGNORE INTO channel_recipients (channel_id, user_id)
+            VALUES (?, ?)
+        `, channelID, recipientID)
+		if err != nil {
+			return fmt.Errorf("failed to save channel recipient: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (d *Database) SaveUser(user *User) error {
