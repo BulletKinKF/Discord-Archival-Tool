@@ -188,31 +188,32 @@ func (a *Archiver) GetUsersFromGuild(guildId string) ([]GuildMember, error) {
 // message ID they already have stored — fetching will continue from that
 // point backwards into older history without re-downloading anything already
 // saved. Pass an empty string to start from the very latest message.
-func (a *Archiver) GetMessages(channelID string, limit int, resumeBeforeID string) ([]Message, error) {
-	var allMessages []Message
-	beforeID := resumeBeforeID // start at the resume point (may be "")
+// After
+func (a *Archiver) GetMessages(channelID string, onBatch func([]Message) error) (int, error) {
+	var totalSaved int
+	var beforeID string
 
 	for {
-		endpoint := fmt.Sprintf("/channels/%s/messages?limit=%d", channelID, min(limit-len(allMessages), 100))
+		endpoint := fmt.Sprintf("/channels/%s/messages?limit=100", channelID)
 		if beforeID != "" {
 			endpoint += "&before=" + beforeID
 		}
 
 		resp, err := a.makeRequest("GET", endpoint)
 		if err != nil {
-			return nil, err
+			return totalSaved, err
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+			return totalSaved, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
 		}
 
 		var messages []Message
 		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
 			resp.Body.Close()
-			return nil, err
+			return totalSaved, err
 		}
 		resp.Body.Close()
 
@@ -220,17 +221,18 @@ func (a *Archiver) GetMessages(channelID string, limit int, resumeBeforeID strin
 			break
 		}
 
-		allMessages = append(allMessages, messages...)
-
-		if len(allMessages) >= limit {
-			break
+		// Save this batch immediately
+		if err := onBatch(messages); err != nil {
+			return totalSaved, err
 		}
 
-		beforeID = messages[len(messages)-1].ID
-		time.Sleep(60 * time.Millisecond) // 0.06 seconds
-	}
+		totalSaved += len(messages)
 
-	return allMessages, nil
+		// No limit check — loop until Discord returns an empty page
+		beforeID = messages[len(messages)-1].ID
+		time.Sleep(60 * time.Millisecond)
+	}
+	return totalSaved, nil
 }
 
 // ArchiveGuild archives all text channels in a guild.
@@ -294,21 +296,22 @@ func (a *Archiver) ArchiveGuild(guildID string, progressCallback func(string)) e
 			))
 		}
 
-		messages, err := a.GetMessages(channel.ID, 10000, resumeID)
+		saved, err := a.GetMessages(channel.ID, func(batch []Message) error {
+			for _, message := range batch {
+				if err := a.db.SaveMessage(&message); err != nil {
+					progressCallback(fmt.Sprintf("⚠️ Error saving message: %v", err))
+					// continue rather than abort the whole channel on one bad message
+				}
+			}
+			messageCount += len(batch)
+			progressCallback(fmt.Sprintf("💾 Saved batch of %d (total %d so far) from #%s", len(batch), messageCount, channel.Name))
+			return nil
+		})
 		if err != nil {
 			progressCallback(fmt.Sprintf("⚠️ Error fetching messages from #%s: %v", channel.Name, err))
 			continue
 		}
-
-		for _, message := range messages {
-			if err := a.db.SaveMessage(&message); err != nil {
-				progressCallback(fmt.Sprintf("⚠️ Error saving message: %v", err))
-				continue
-			}
-			messageCount++
-		}
-
-		progressCallback(fmt.Sprintf("✅ Saved %d messages from #%s", len(messages), channel.Name))
+		progressCallback(fmt.Sprintf("✅ Finished #%s — %d messages saved", channel.Name, saved))
 	}
 
 	progressCallback(fmt.Sprintf("✨ Archive complete: %d channels, %d messages", len(channels), messageCount))
