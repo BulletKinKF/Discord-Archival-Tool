@@ -259,27 +259,19 @@ func (d *Database) SaveMessage(message *Message) error {
 // If the channel has no messages yet, it returns ("", nil) — the caller
 // should treat an empty string as "no resume point; start from the top".
 func (d *Database) GetOldestMessageID(channelID string) (string, error) {
-	chID, err := parseID(channelID)
+	cID, err := parseID(channelID)
 	if err != nil {
-		return "", fmt.Errorf("invalid channel ID: %w", err)
+		return "", err
 	}
 
-	var minID sql.NullInt64
+	var id uint64
 	err = d.db.QueryRow(`
-		SELECT MIN(id) FROM messages WHERE channel_id = ?
-	`, chID).Scan(&minID)
-	if err != nil {
-		return "", fmt.Errorf("querying oldest message ID: %w", err)
+        SELECT MIN(id) FROM messages WHERE channel_id = ?
+    `, cID).Scan(&id)
+	if err != nil || id == 0 {
+		return "", nil // no messages yet, start fresh
 	}
-
-	// No rows stored yet for this channel.
-	if !minID.Valid {
-		return "", nil
-	}
-
-	// Convert back to a string so callers can use it directly in API URLs,
-	// the same way the rest of the codebase handles Discord snowflakes.
-	return strconv.FormatUint(uint64(minID.Int64), 10), nil
+	return fmt.Sprintf("%d", id), nil
 }
 
 func (d *Database) GetGuildStats(guildID string) (map[string]interface{}, error) {
