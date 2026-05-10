@@ -7,7 +7,7 @@ Discord Archive Tool is meant to be a tool for Archival. The goal is to make it 
 
 You need gcc to set `CGO_ENABLED=1` for this to build.
 
-This repository is licensed with the [MIT](https://mit-license.org/) license.
+This repository is licensed with the [GPL 3.0](https://www.gnu.org/licenses/gpl-3.0.en.html/) license.
 
 ***
 
