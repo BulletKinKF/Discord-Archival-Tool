@@ -1,7 +1,6 @@
 # DISREGARD THAT I SUCK COCKS
 .env
 .git
-*.sum
 *.exe
 # Database stuff
 *.db*
