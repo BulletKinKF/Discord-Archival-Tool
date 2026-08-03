@@ -274,6 +274,18 @@ func (d *Database) GetOldestMessageID(channelID string) (string, error) {
 	return fmt.Sprintf("%d", id), nil
 }
 
+func (d *Database) GetNewestMessageID(channelID string) (string, error) {
+	var id string
+	err := d.db.QueryRow(
+		`SELECT id FROM messages WHERE channel_id = ? ORDER BY id DESC LIMIT 1`,
+		channelID,
+	).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return id, err
+}
+
 func (d *Database) GetGuildStats(guildID string) (map[string]interface{}, error) {
 	gID, err := parseID(guildID)
 	if err != nil {

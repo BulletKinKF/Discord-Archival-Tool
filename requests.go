@@ -228,6 +228,58 @@ func (a *Archiver) GetMessages(channelID string, beforeID string, onBatch func([
 	return totalSaved, nil
 }
 
+// SyncNewMessages fetches all messages newer than afterID, paginating
+// forward (oldest-of-the-new → newest) using Discord's ?after= parameter.
+// Each page is delivered to onBatch immediately, same contract as GetMessages.
+func (a *Archiver) SyncNewMessages(channelID string, afterID string, onBatch func([]Message) error) (int, error) {
+	var totalSaved int
+	for {
+		endpoint := fmt.Sprintf("/channels/%s/messages?limit=100", channelID)
+		if afterID != "" {
+			endpoint += "&after=" + afterID
+		}
+
+		resp, err := a.makeRequest("GET", endpoint)
+		if err != nil {
+			return totalSaved, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return totalSaved, fmt.Errorf("API error: %d - %s", resp.StatusCode, body)
+		}
+
+		var messages []Message
+		if err := json.NewDecoder(resp.Body).Decode(&messages); err != nil {
+			resp.Body.Close()
+			return totalSaved, err
+		}
+		resp.Body.Close()
+
+		if len(messages) == 0 {
+			break
+		}
+
+		if err := onBatch(messages); err != nil {
+			return totalSaved, err
+		}
+		totalSaved += len(messages)
+
+		// Messages come back newest-first; element [0] is the most recent
+		// one in *this* batch, which becomes the floor for the next page.
+		afterID = messages[0].ID
+
+		// A short page means we've caught up to the present.
+		if len(messages) < 100 {
+			break
+		}
+
+		time.Sleep(60 * time.Millisecond)
+	}
+	return totalSaved, nil
+}
+
 // ArchiveGuild archives all text channels in a guild.
 // For each channel it checks the database for the oldest message already
 // stored and resumes downloading from that point, so interrupted runs can
@@ -304,6 +356,29 @@ func (a *Archiver) ArchiveGuild(guildID string, progressCallback func(string)) e
 			continue
 		}
 		progressCallback(fmt.Sprintf("✅ Finished #%s — %d messages saved this run", channel.Name, saved))
+
+		// New: catch anything posted since the last archive run.
+		newestID, err := a.db.GetNewestMessageID(channel.ID)
+		if err != nil {
+			progressCallback(fmt.Sprintf("⚠️ Could not read newest message for #%s: %v", channel.Name, err))
+			newestID = ""
+		}
+		if newestID != "" {
+			newCount, err := a.SyncNewMessages(channel.ID, newestID, func(batch []Message) error {
+				for _, message := range batch {
+					if err := a.db.SaveMessage(&message); err != nil {
+						progressCallback(fmt.Sprintf("⚠️ Error saving message: %v", err))
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				progressCallback(fmt.Sprintf("⚠️ Error syncing new messages in #%s: %v", channel.Name, err))
+			} else if newCount > 0 {
+				messageCount += newCount
+				progressCallback(fmt.Sprintf("🆕 Synced %d new message(s) in #%s", newCount, channel.Name))
+			}
+		}
 	}
 
 	progressCallback(fmt.Sprintf("✨ Archive complete: %d channels, %d messages", len(channels), messageCount))
